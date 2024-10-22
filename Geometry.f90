@@ -114,6 +114,26 @@ module GEOMETRY
 
         ! Работаем со второй подсеткой
 
+        if (ALLOCATED(gl_S_out%gran) == .False.) then
+            print*, "ERROR  GEOMETRY 93u8y4r8t38rg28uh2pr8hf92uhp82ygfpgg"
+            STOP
+        end if
+
+        do i = N + 1, 2 * N  ! Заполняем грани на внешней сфере
+            j = i + 1
+            if(j > 2 * N) j = N + 1
+            gl_S_out%gran(1, i - N) = j
+            gl_S_out%gran(2, i - N) = i
+            gl_S_out%if_u_0(i - N) = .False.
+            gl_S_out%if_un_0(i - N) = .True.
+            gl_S_out%gran_info(i - N) = 2
+        end do
+
+        gl_S_out%if_u = gl_S_out%if_u_0
+        gl_S_out%if_un = gl_S_out%if_un_0
+
+        call Calc_grans(gl_S_out)
+
     end subroutine ALL_konstruct
 
 
@@ -155,10 +175,17 @@ module GEOMETRY
                 SS%if_u(i) = .True.
                 SS%if_un(i) = .False.
             else
-                SS%un(i) = 0.0
-                SS%u(i) = 0.0
-                SS%if_u(i) = .False.
-                SS%if_un(i) = .True.
+                if(SS%area == 1) then
+                    SS%un(i) = 0.0
+                    SS%u(i) = 0.0
+                    SS%if_u(i) = .False.
+                    SS%if_un(i) = .True.
+                else
+                    SS%un(i) = -par_Uinf * SS%normal_gran_x(i)
+                    SS%u(i) = 0.0
+                    SS%if_u(i) = .False.
+                    SS%if_un(i) = .True.
+                end if
             end if
             
 
@@ -332,7 +359,28 @@ module GEOMETRY
         TYPE (Setka), intent(in) :: SS  
         real(8), intent(in) :: x, y
         real(8) :: S, xi, yi, x1, x2, x3, y1, y2, y3, r, n1, n2, r1, r2, rr, l, fn1
-        INTEGER :: k1, k2, i
+        INTEGER :: k1, k2, i, j
+        real(8) :: ksi(5), wk(5)
+
+        ksi(1) = -0.906179845938664_8
+        ksi(2) = -0.538469310105683_8
+        ksi(3) = 0.0_8
+        ksi(4) = 0.538469310105683_8
+        ksi(5) = 0.906179845938664_8
+
+        wk(1) = 0.236926885056189
+        wk(2) = 0.478628670499366
+        wk(3) = 0.568888888888889
+        wk(4) = 0.478628670499366
+        wk(5) = 0.236926885056189
+
+        ! ksi(1) = -0.774596669241483_8
+        ! ksi(2) = 0.0_8
+        ! ksi(3) = 0.774596669241483_8
+
+        ! wk(1) = 0.555555555555556
+        ! wk(2) = 0.888888888888889
+        ! wk(3) = 0.555555555555556
 
         S = 0.0_8
 
@@ -346,24 +394,28 @@ module GEOMETRY
             x2 = yzel_x(k2)
             y2 = yzel_y(k2)
             
-            x3 = SS%center_gran_x(i)
-            y3 = SS%center_gran_y(i)
-            r = sqrt(x3**2 + y3**2)
             n1 = SS%normal_gran_x(i)
             n2 = SS%normal_gran_y(i)
-            
-            r1 = x3 - xi
-            r2 = y3 - yi
-            rr = r1**2 + r2**2
             l = SS%len_gran(i)
-            S = S + r1 * l * SS%un(i)/2.0/par_pi/rr
 
-            fn1 = n1 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
-            n2 * r1 * r2/(par_pi * rr * rr) 
+            do j = 1, 5
+                x3 = (x2 + x1)/2.0 + ksi(j) * (x2 - x1)/2.0
+                y3 = (y2 + y1)/2.0 + ksi(j) * (y2 - y1)/2.0
+                ! x3 = SS%center_gran_x(i)
+                ! y3 = SS%center_gran_y(i)
+                r = sqrt(x3**2 + y3**2)
+                
+                r1 = x3 - xi
+                r2 = y3 - yi
+                rr = r1**2 + r2**2
+                
+                S = S + r1 * l * SS%un(i)/2.0/par_pi/rr * wk(j)/2.0
 
+                fn1 = n1 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
+                n2 * r1 * r2/(par_pi * rr * rr) 
 
-            
-            S = S + fn1 * l * SS%u(i)
+                S = S + fn1 * l * SS%u(i) * wk(j)/2.0
+            end do
         end do
         Get_v1 = S
     end function Get_v1
@@ -373,7 +425,28 @@ module GEOMETRY
         TYPE (Setka), intent(in) :: SS  
         real(8), intent(in) :: x, y
         real(8) :: S, xi, yi, x1, x2, x3, y1, y2, y3, r, n1, n2, r1, r2, rr, l, fn2
-        INTEGER :: k1, k2, i
+        INTEGER :: k1, k2, i, j
+        real(8) :: ksi(5), wk(5)
+
+        ksi(1) = -0.906179845938664_8
+        ksi(2) = -0.538469310105683_8
+        ksi(3) = 0.0_8
+        ksi(4) = 0.538469310105683_8
+        ksi(5) = 0.906179845938664_8
+
+        wk(1) = 0.236926885056189
+        wk(2) = 0.478628670499366
+        wk(3) = 0.568888888888889
+        wk(4) = 0.478628670499366
+        wk(5) = 0.236926885056189
+
+        ! ksi(1) = -0.774596669241483_8
+        ! ksi(2) = 0.0_8
+        ! ksi(3) = 0.774596669241483_8
+
+        ! wk(1) = 0.555555555555556
+        ! wk(2) = 0.888888888888889
+        ! wk(3) = 0.555555555555556
 
         S = 0.0_8
 
@@ -387,34 +460,37 @@ module GEOMETRY
             x2 = yzel_x(k2)
             y2 = yzel_y(k2)
             
-            x3 = SS%center_gran_x(i)
-            y3 = SS%center_gran_y(i)
-            r = sqrt(x3**2 + y3**2)
-            n1 = SS%normal_gran_x(i)
-            n2 = SS%normal_gran_y(i)
-            
-            r1 = x3 - xi
-            r2 = y3 - yi
-            rr = r1**2 + r2**2
-            l = SS%len_gran(i)
-            S = S + r2 * l * SS%un(i)/2.0/par_pi/rr
+            do j = 1, 5
+                x3 = (x2 + x1)/2.0 + ksi(j) * (x2 - x1)/2.0
+                y3 = (y2 + y1)/2.0 + ksi(j) * (y2 - y1)/2.0
+                ! x3 = SS%center_gran_x(i)
+                ! y3 = SS%center_gran_y(i)
+                r = sqrt(x3**2 + y3**2)
+                n1 = SS%normal_gran_x(i)
+                n2 = SS%normal_gran_y(i)
+                
+                r1 = x3 - xi
+                r2 = y3 - yi
+                rr = r1**2 + r2**2
+                l = SS%len_gran(i)
+                S = S + r2 * l * SS%un(i)/2.0/par_pi/rr * wk(j)/2.0
 
-            fn2 = -n2 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
-            n1 * r1 * r2/(par_pi * rr * rr)
-            
-            S = S + fn2 * l * SS%u(i)
+                fn2 = -n2 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
+                n1 * r1 * r2/(par_pi * rr * rr)
+                
+                S = S + fn2 * l * SS%u(i) * wk(j)/2.0
+            end do
         end do
         Get_v2 = S
     end function Get_v2
 
 
-    subroutine Print_Solution(SS)
-        TYPE (Setka), intent(in) :: SS  
+    subroutine Print_Solution()
         INTEGER :: i, NNN, j
         real(8) :: r, the, x, y, ux, uy
 
-        NNN = 100
-        open(1, file = 'Solution.txt')
+        NNN = 150
+        open(1, file = 'Solution_in.txt')
         write(1,*) "TITLE = 'HP'  VARIABLES = 'X', 'Y', 'F', 'Bx', 'By', 'BB'"
 
         do i = 1, NNN
@@ -423,9 +499,27 @@ module GEOMETRY
                 the = j * 2.0_8 * par_pi/NNN
                 x = r * cos(the)
                 y = r * sin(the)
-                ux = Get_v1(x, y, SS)
-                uy = Get_v2(x, y, SS)
-                write(1,*) x, y, Get_f(x, y, SS), ux, uy, (ux**2 + uy**2)/(8.0 * par_pi)
+                ux = Get_v1(x, y, gl_S_in)
+                uy = Get_v2(x, y, gl_S_in)
+                write(1,*) x, y, Get_f(x, y, gl_S_in), ux, uy, (ux**2 + uy**2)/(8.0 * par_pi)
+            end do
+        end do
+
+        close(1)
+
+
+        open(1, file = 'Solution_out.txt')
+        write(1,*) "TITLE = 'HP'  VARIABLES = 'X', 'Y', 'F', 'Ux', 'Uy', 'p'"
+
+        do i = 1, NNN
+            do j = 1, NNN
+                r = par_R1 + (3.0 * par_R1 - par_R1) * (i)/(NNN + 1)
+                the = j * 2.0_8 * par_pi/NNN
+                x = r * cos(the)
+                y = r * sin(the)
+                ux = Get_v1(x, y, gl_S_out)
+                uy = Get_v2(x, y, gl_S_out)
+                write(1,*) x, y, Get_f(x, y, gl_S_out) + par_Uinf * x, ux + par_Uinf, uy, 10.0 - (ux**2 + uy**2)/2.0
             end do
         end do
 
@@ -454,9 +548,14 @@ module GEOMETRY
     subroutine Print_gran_setka(SS)
         TYPE (Setka), intent(in) :: SS
         INTEGER :: i, N, k1, k2, j
+        character(len=3) :: name
+
+
+        write(unit=name,fmt='(i3.3)') SS%area
+
 
         N = SS%N
-        open(1, file = 'Grans.txt')
+        open(1, file = name // '_Grans.txt')
         write(1,*) "TITLE = 'HP'  VARIABLES = 'X', 'Y', ZONE T= 'HP', N= ", 2 * N, ", E =  ", N , ", F=FEPOINT, ET=LINESEG"
 
         do i = 1, N

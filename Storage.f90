@@ -7,6 +7,7 @@ module STORAGE
 
     real(8), parameter :: par_R0 = 0.1_8  ! Внутренняя сфера (Земля)
     real(8), parameter :: par_R1 = 1.0_8  ! Внешняя сфера (Магнитосфера)
+    real(8), parameter :: par_Uinf = -1.0_8  ! Внешняя сфера (Магнитосфера)
 
 
 
@@ -16,6 +17,10 @@ module STORAGE
 
     TYPE, public :: Setka
         ! Данные, которые не меняются
+        integer :: area
+        ! 1 - внутренняя область
+        ! 2 - внешняя область
+
         integer :: N  ! Сколько граней в подсетке
         integer, allocatable :: gran(:, :)  ! (2, :)  Грани данной подсетки - подзадачи
 
