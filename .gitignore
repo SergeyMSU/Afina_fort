@@ -1,0 +1,14 @@
+
+.vs/Afina_fort/v16/
+
+*.txt
+
+Debug/
+
+*.fdz
+
+*.sln
+
+*.u2d
+
+*.vfproj
