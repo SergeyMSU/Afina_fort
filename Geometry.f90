@@ -204,9 +204,9 @@ module GEOMETRY
 
     real(8) pure function H_func(i, j, SS)
         TYPE (Setka), intent(in) :: SS  
-        integer, intent(in) :: i, j, jj
-        real(8) :: xi, yi, x1, y1, x2, y2, x3, y3, r, n1, n2, r1, r2, rr, l
-        integer :: k1, k2
+        integer, intent(in) :: i, j
+        real(8) :: xi, yi, x1, y1, x2, y2, x3, y3, r, n1, n2, r1, r2, rr, l, S
+        integer :: k1, k2, jj
         real(8) :: ksi(5), wk(5)
 
         ksi(1) = -0.906179845938664_8
@@ -223,6 +223,7 @@ module GEOMETRY
 
 
         if(i /= j) then
+            S = 0.0_8
             xi = SS%center_gran_x(i)
             yi = SS%center_gran_y(i)
 
@@ -232,38 +233,34 @@ module GEOMETRY
             y1 = yzel_y(k1)
             x2 = yzel_x(k2)
             y2 = yzel_y(k2)
-
-            ! do jj = 1, 5
-            !     x3 = (x2 + x1)/2.0 + ksi(j) * (x2 - x1)/2.0
-            !     y3 = (y2 + y1)/2.0 + ksi(j) * (y2 - y1)/2.0
-            !     ! x3 = SS%center_gran_x(i)
-            !     ! y3 = SS%center_gran_y(i)
-            !     r = sqrt(x3**2 + y3**2)
-                
-            !     r1 = x3 - xi
-            !     r2 = y3 - yi
-            !     rr = r1**2 + r2**2
-                
-            !     S = S + r1 * l * SS%un(i)/2.0/par_pi/rr * wk(j)/2.0
-
-            !     fn1 = n1 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
-            !     n2 * r1 * r2/(par_pi * rr * rr) 
-
-            !     S = S + fn1 * l * SS%u(i) * wk(j)/2.0
-            ! end do
-
-
-            
-            x3 = SS%center_gran_x(j)
-            y3 = SS%center_gran_y(j)
-            r = sqrt(x3**2 + y3**2)
+            l = SS%len_gran(j)
             n1 = SS%normal_gran_x(j)
             n2 = SS%normal_gran_y(j)
-            r1 = x3 - xi
-            r2 = y3 - yi
-            rr = r1**2 + r2**2
-            l = SS%len_gran(j)
-            H_func = (r1 * n1 + r2 * n2)/(rr * 2.0 * par_pi) * l
+
+            do jj = 1, 5
+                x3 = (x2 + x1)/2.0 + ksi(jj) * (x2 - x1)/2.0
+                y3 = (y2 + y1)/2.0 + ksi(jj) * (y2 - y1)/2.0
+                ! x3 = SS%center_gran_x(i)
+                ! y3 = SS%center_gran_y(i)
+                r = sqrt(x3**2 + y3**2)
+                
+                r1 = x3 - xi
+                r2 = y3 - yi
+                rr = r1**2 + r2**2
+
+                S = S + (r1 * n1 + r2 * n2)/(rr * 2.0 * par_pi) * l * wk(jj)/2.0
+            end do
+            H_func = S
+
+            
+            ! x3 = SS%center_gran_x(j)
+            ! y3 = SS%center_gran_y(j)
+            ! r = sqrt(x3**2 + y3**2)
+            ! r1 = x3 - xi
+            ! r2 = y3 - yi
+            ! rr = r1**2 + r2**2
+            ! l = SS%len_gran(j)
+            ! H_func = (r1 * n1 + r2 * n2)/(rr * 2.0 * par_pi) * l
         else
             H_func = -0.5
         end if
@@ -273,8 +270,21 @@ module GEOMETRY
     real(8) pure function G_func(i, j, SS)
         TYPE (Setka), intent(in) :: SS  
         integer, intent(in) :: i, j
-        real(8) :: xi, yi, x1, x2, y1, y2, l, r1, r2
-        integer :: k1, k2
+        real(8) :: xi, yi, x1, x2, y1, y2, l, r1, r2, S, x3, y3
+        integer :: k1, k2, jj
+        real(8) :: ksi(5), wk(5)
+
+        ksi(1) = -0.906179845938664_8
+        ksi(2) = -0.538469310105683_8
+        ksi(3) = 0.0_8
+        ksi(4) = 0.538469310105683_8
+        ksi(5) = 0.906179845938664_8
+
+        wk(1) = 0.236926885056189
+        wk(2) = 0.478628670499366
+        wk(3) = 0.568888888888889
+        wk(4) = 0.478628670499366
+        wk(5) = 0.236926885056189
 
         xi = SS%center_gran_x(i)
         yi = SS%center_gran_y(i)
@@ -291,7 +301,19 @@ module GEOMETRY
         if (i == j) then
             G_func = l * (log(l/2.0) - 1.0)/(2.0 * par_pi)
         else
-            G_func = (l/(4.0 * par_pi)) * (log(r1) + log(r2))
+            S = 0.0_8
+            do jj = 1, 5
+                x3 = (x2 + x1)/2.0 + ksi(jj) * (x2 - x1)/2.0
+                y3 = (y2 + y1)/2.0 + ksi(jj) * (y2 - y1)/2.0
+                
+                r1 = sqrt((xi - x3)**2 + (yi - y3)**2)
+        
+                S = S + (l/(4.0 * par_pi)) * log(r1) * wk(jj)
+            end do
+
+            ! G_func = (l/(4.0 * par_pi)) * (log(r1) + log(r2))
+            G_func = S
+
         end if
 
     end function G_func
@@ -563,11 +585,17 @@ module GEOMETRY
             jj = i - 1
             if(jj == 0) jj = N
 
-            if(i == N/4 .or. i == 3 * N/4) then
-                sur_r2(i) = sur_r(i)
-            else
-                sur_r2(i) = (sur_r(j) + sur_r(jj))/2.0
-            end if
+            ! if(i == N/4 .or. i == 3 * N/4) then
+            !     sur_r2(i) = sur_r(i)
+            ! else
+            !     ! sur_r2(i) = (sur_r(j) + 2 * sur_r(i) + sur_r(jj))/4.0
+            !     sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+            !     ! sur_r2(i) = (sur_r(j) + sur_r(jj))/2.0
+            ! end if
+
+            sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+            ! sur_r2(i) = (sur_r(j) + 3 * sur_r(i) + sur_r(jj))/5.0
+
         end do
 
         do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ

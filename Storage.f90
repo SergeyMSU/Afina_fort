@@ -18,6 +18,8 @@ module STORAGE
     integer :: par_N
     real(8), allocatable :: yzel_x(:)  ! Все узлы в программе
     real(8), allocatable :: yzel_y(:)  ! Все узлы в программе
+
+    ! Далее для магнитопаузы, т.к. мы её двигаем
     ! От N + 1 до 2N - поверхность Магнитопаузы
     real(8), allocatable :: vel_gran(:)  ! Скорость грани
     real(8), allocatable :: vel_yzel_x(:)  ! Скорость узла

@@ -21,7 +21,7 @@ program Afina_fort
     implicit none
 
     integer :: N, i
-    N = 400
+    N = 400 ! 400
 
     par_N = N
     call Init_Setka(gl_S_in, 2 * N)
@@ -30,10 +30,10 @@ program Afina_fort
     gl_S_out%area = 2
 	call ALL_konstruct(N)
 
-    !call Read_surface(1)
+    ! call Read_surface(7)
     call Print_gran_setka(gl_S_in)
 
-    do i = 1, 0
+    do i = 1, 200
         print*, "step = ", i
         call Calc_grans(gl_S_in)
         call Calc_grans(gl_S_out)
@@ -53,7 +53,7 @@ program Afina_fort
     call Set_Matrix(gl_S_out)
     call Culc_equ(gl_S_in)
     call Culc_equ(gl_S_out)
-    call Save_surface(2)
+    call Save_surface(1)
     call Print_Pressure()
 
 
