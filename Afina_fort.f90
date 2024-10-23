@@ -30,7 +30,10 @@ program Afina_fort
     gl_S_out%area = 2
 	call ALL_konstruct(N)
 
-    do i = 1, 150
+    !call Read_surface(1)
+    call Print_gran_setka(gl_S_in)
+
+    do i = 1, 0
         print*, "step = ", i
         call Calc_grans(gl_S_in)
         call Calc_grans(gl_S_out)
@@ -42,6 +45,17 @@ program Afina_fort
         call Culc_equ(gl_S_out)
         call Move_surface()
     end do
+
+
+    call Calc_grans(gl_S_in)
+    call Calc_grans(gl_S_out)
+    call Set_Matrix(gl_S_in)
+    call Set_Matrix(gl_S_out)
+    call Culc_equ(gl_S_in)
+    call Culc_equ(gl_S_out)
+    call Save_surface(2)
+    call Print_Pressure()
+
 
     ! call Print_test()
 

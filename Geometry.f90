@@ -64,6 +64,9 @@ module GEOMETRY
         ALLOCATE(vel_gran(N))
         ALLOCATE(vel_yzel_x(N))
         ALLOCATE(vel_yzel_y(N))
+        ALLOCATE(sur_r(N))
+        ALLOCATE(sur_r2(N))
+        ALLOCATE(sur_the(N))
 
 
         do i = 1, N
@@ -201,19 +204,56 @@ module GEOMETRY
 
     real(8) pure function H_func(i, j, SS)
         TYPE (Setka), intent(in) :: SS  
-        integer, intent(in) :: i, j
+        integer, intent(in) :: i, j, jj
         real(8) :: xi, yi, x1, y1, x2, y2, x3, y3, r, n1, n2, r1, r2, rr, l
         integer :: k1, k2
+        real(8) :: ksi(5), wk(5)
+
+        ksi(1) = -0.906179845938664_8
+        ksi(2) = -0.538469310105683_8
+        ksi(3) = 0.0_8
+        ksi(4) = 0.538469310105683_8
+        ksi(5) = 0.906179845938664_8
+
+        wk(1) = 0.236926885056189
+        wk(2) = 0.478628670499366
+        wk(3) = 0.568888888888889
+        wk(4) = 0.478628670499366
+        wk(5) = 0.236926885056189
+
 
         if(i /= j) then
             xi = SS%center_gran_x(i)
             yi = SS%center_gran_y(i)
+
             k1 = SS%gran(1, j)
             k2 = SS%gran(2, j)
             x1 = yzel_x(k1)
             y1 = yzel_y(k1)
             x2 = yzel_x(k2)
             y2 = yzel_y(k2)
+
+            ! do jj = 1, 5
+            !     x3 = (x2 + x1)/2.0 + ksi(j) * (x2 - x1)/2.0
+            !     y3 = (y2 + y1)/2.0 + ksi(j) * (y2 - y1)/2.0
+            !     ! x3 = SS%center_gran_x(i)
+            !     ! y3 = SS%center_gran_y(i)
+            !     r = sqrt(x3**2 + y3**2)
+                
+            !     r1 = x3 - xi
+            !     r2 = y3 - yi
+            !     rr = r1**2 + r2**2
+                
+            !     S = S + r1 * l * SS%un(i)/2.0/par_pi/rr * wk(j)/2.0
+
+            !     fn1 = n1 * (x3 + y3 - xi - yi) * (x3 - y3 - xi + yi)/(2.0 * par_pi * rr * rr) +  &
+            !     n2 * r1 * r2/(par_pi * rr * rr) 
+
+            !     S = S + fn1 * l * SS%u(i) * wk(j)/2.0
+            ! end do
+
+
+            
             x3 = SS%center_gran_x(j)
             y3 = SS%center_gran_y(j)
             r = sqrt(x3**2 + y3**2)
@@ -333,9 +373,16 @@ module GEOMETRY
         end if
     end function my_sign
 
+    integer pure function my_mod(a, b)
+        INTEGER, intent(in) :: a, b
+        INTEGER :: k
+        k = mod(a, b)
+        if (k < 0) k = b + k
+        my_mod = k
+    end function my_mod
 
     subroutine Move_surface() ! Двигаем поверхность-магнитопаузу согласно давлению с двух сторон
-        integer :: i, j, N, jj, o1, o2, o3, o4
+        integer :: i, j, N, jj, o1, o2, o3, o4, k_sqlag
         real(8) :: n1, n2, x0, y0, x1, y1, r, nn, u1, u2, ex, ey
         real(8) :: p1, p2, ux, uy, f1, f2, x2, y2, d, the, pp1, pp2, x3, y3
 
@@ -343,11 +390,13 @@ module GEOMETRY
         vel_gran = 0.0_8;
         N = par_N
 
-        open(1, file = 'test1.txt')
-        write(1,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2'"
+        k_sqlag = 3
 
-        open(2, file = 'test2.txt')
-        write(2,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2', 'ux', 'uy', 'u1', 'u2'"
+        ! open(1, file = 'test1.txt')
+        ! write(1,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2'"
+
+        ! open(2, file = 'test2.txt')
+        ! write(2,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2', 'ux', 'uy', 'u1', 'u2'"
 
         ! Расчитываем скорость грани
         do i = N + 1, 2 * N
@@ -371,28 +420,29 @@ module GEOMETRY
 
             ! Новый вариант вычисления давления на границе
             p1 = 0.0_8
-            do o1 = -3, 3, 1
+            do o1 = -k_sqlag, k_sqlag, 1
                 o2 = i + o1
-                o3 = o2 + 1
-                o4 = o2 - 1
-                o2 = N + 1 + mod(o2 - N - 1, N)
-                o3 = N + 1 + mod(o3 - N - 1, N)
-                o4 = N + 1 + mod(o4 - N - 1, N)
+                o3 = o2 + 1!1
+                o4 = o2 - 1!1
+                o2 = N + 1 + my_mod(o2 - N - 1, N)
+                o3 = N + 1 + my_mod(o3 - N - 1, N)
+                o4 = N + 1 + my_mod(o4 - N - 1, N)
 
-                x1 = gl_S_in%center_gran_x(j)
-                y1 = gl_S_in%center_gran_y(j)
-                f1 = gl_S_in%u(j)
+                x1 = gl_S_in%center_gran_x(o3)
+                y1 = gl_S_in%center_gran_y(o3)
+                f1 = gl_S_in%u(o3)
 
-                x2 = gl_S_in%center_gran_x(jj)
-                y2 = gl_S_in%center_gran_y(jj)
-                f2 = gl_S_in%u(jj)
+                x2 = gl_S_in%center_gran_x(o4)
+                y2 = gl_S_in%center_gran_y(o4)
+                f2 = gl_S_in%u(o4)
 
                 ux = (f2 - f1)/sqrt((x2 - x1)**2 + (y2 - y1)**2)
-                p1 = (ux**2)/(8.0 * par_pi)
+                p1 = p1 + (ux**2)/(8.0 * par_pi)
             end do
+            p1 = p1 / (2 * k_sqlag + 1)
 
             the = atan(y0, x0)
-            write(1,*) the, pp1, p1
+            ! write(1,*) the, pp1, p1
 
             x1 = x0 + par_otstup * n1
             y1 = y0 + par_otstup * n2
@@ -401,26 +451,39 @@ module GEOMETRY
             pp2 = par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
 
             ! Новый вариант вычисления давления на границе
-            x1 = gl_S_out%center_gran_x(j - N)
-            y1 = gl_S_out%center_gran_y(j - N)
-            f1 = gl_S_out%u(j - N)
+            p2 = 0.0_8
+            do o1 = -k_sqlag, k_sqlag, 1
+                o2 = i + o1
+                o3 = o2 + 1!1
+                o4 = o2 - 1!1
+                o2 = N + 1 + my_mod(o2 - N - 1, N)
+                o3 = N + 1 + my_mod(o3 - N - 1, N)
+                o4 = N + 1 + my_mod(o4 - N - 1, N)
 
-            x2 = gl_S_out%center_gran_x(jj - N)
-            y2 = gl_S_out%center_gran_y(jj - N)
-            f2 = gl_S_out%u(jj - N)
+                x1 = gl_S_out%center_gran_x(o3 - N)
+                y1 = gl_S_out%center_gran_y(o3 - N)
+                f1 = gl_S_out%u(o3 - N)
 
-            d = sqrt((x2 - x1)**2 + (y2 - y1)**2)
-            u1 = (f2 - f1)/d
-            u2 = -par_Uinf * (-n1)
-            ex = (x2 - x1)/d
-            ey = (y2 - y1)/d
+                x2 = gl_S_out%center_gran_x(o4 - N)
+                y2 = gl_S_out%center_gran_y(o4 - N)
+                f2 = gl_S_out%u(o4 - N)
 
-            ux = u1 * ex + u2 * (-n1)
-            uy = u1 * ey + u2 * (-n2)
+                n1 = gl_S_in%normal_gran_x(o2)
 
-            p2 = par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
+                d = sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                u1 = (f2 - f1)/d
+                u2 = -par_Uinf * (-n1)
+                ex = (x2 - x1)/d
+                ey = (y2 - y1)/d
 
-            write(2,*) the, pp2, p2, ux + par_Uinf, uy, u1, u2
+                ux = u1 * ex + u2 * (-n1)
+                uy = u1 * ey + u2 * (-n2)
+
+                p2 = p2 + par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
+            end do
+            p2 = p2/(2 * k_sqlag + 1)
+
+            ! write(2,*) the, pp2, p2, ux + par_Uinf, uy, u1, u2
             
             vel_gran(i - N) = vel_gran(i - N) + par_move * sqrt(abs(p1 - p2))/2.0 * my_sign(p1 - p2)
 
@@ -437,8 +500,8 @@ module GEOMETRY
             ! print*, (i - N), vel_gran(i - N), p1, p2
         end do
 
-        close(1)
-        close(2)
+        ! close(1)
+        ! close(2)
 
         ! Расчитываем скорость каждого узла
         vel_yzel_x = 0.0_8
@@ -469,6 +532,10 @@ module GEOMETRY
             x0 = yzel_x(i)
             y0 = yzel_y(i)
             r = sqrt(x0 * x0 + y0 * y0)
+            if(r > 50.0) then
+                print*, "r > 50", r, " ERROR  9u489ry7830r3hujf8hg3g34g"
+                STOP
+            end if
             nn = vel_yzel_x(i - N) * x0/r + vel_yzel_y(i - N) * y0/r
             yzel_x(i) = x0 + x0/r * nn
             yzel_y(i) = y0 + y0/r * nn
@@ -476,24 +543,36 @@ module GEOMETRY
 
 
         ! Сглаживание
-        do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ
-            j = i + 1
-            if(j > 2 * N) j = N + 1
-            jj = i - 1
-            if(jj == N) jj = 2 * N
-
+        do i = N + 1, 2 * N   
             x0 = yzel_x(i)
             y0 = yzel_y(i)
-            x1 = yzel_x(jj)
-            y1 = yzel_y(jj)
-            x2 = yzel_x(j)
-            y2 = yzel_y(j)
+            r = sqrt(x0 * x0 + y0 * y0)
+            the = atan(y0, x0)
+            if(the > 0) then
+                sur_the(i - N) = the
+            else
+                sur_the(i - N) = the + 2 * par_pi
+            end if
+            sur_r(i - N) = r
+        end do
 
-            x3 = (x1 + x2)/2.0
-            y3 = (y1 + y2)/2.0
+        ! Сглаживание
+        do i = 1, N   ! Номера узлов  !! ДОДЕЛАТЬ
+            j = i + 1
+            if(j > N) j = 1
+            jj = i - 1
+            if(jj == 0) jj = N
 
-            yzel_x(i) = x0 + (x3 - x0) * par_sglag
-            yzel_y(i) = y0 + (y3 - y0) * par_sglag
+            if(i == N/4 .or. i == 3 * N/4) then
+                sur_r2(i) = sur_r(i)
+            else
+                sur_r2(i) = (sur_r(j) + sur_r(jj))/2.0
+            end if
+        end do
+
+        do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ
+            yzel_x(i) = sur_r2(i - N) * cos(sur_the(i - N))
+            yzel_y(i) = sur_r2(i - N) * sin(sur_the(i - N))
         end do
 
     end subroutine Move_surface
@@ -666,6 +745,105 @@ module GEOMETRY
         Get_v2 = S
     end function Get_v2
 
+    subroutine Print_Pressure() ! Двигаем поверхность-магнитопаузу согласно давлению с двух сторон
+        integer :: i, j, N, jj, o1, o2, o3, o4, k_sqlag
+        real(8) :: n1, n2, x0, y0, x1, y1, r, nn, u1, u2, ex, ey
+        real(8) :: p1, p2, ux, uy, f1, f2, x2, y2, d, the, pp1, pp2, x3, y3
+
+        ! print*, "Move_surface"
+        vel_gran = 0.0_8;
+        N = par_N
+
+        k_sqlag = 3
+
+        open(2, file = 'pressure.txt')
+        write(2,*) "TITLE = 'HP'  VARIABLES = 'the', 'r', 'p1', 'p2', 'f1', 'f2', 'fn1', 'fn2'"
+
+        ! Расчитываем скорость грани
+        do i = N + 1, 2 * N
+            j = i + 1
+            if(j > 2 * N) j = N + 1
+            jj = i - 1
+            if(jj == N) jj = 2 * N
+            x0 = gl_S_in%center_gran_x(i)
+            y0 = gl_S_in%center_gran_y(i)
+
+
+            n1 = gl_S_in%normal_gran_x(i)
+            n2 = gl_S_in%normal_gran_y(i)
+
+            ! Новый вариант вычисления давления на границе
+            p1 = 0.0_8
+            do o1 = -k_sqlag, k_sqlag, 1
+                o2 = i + o1
+                o3 = o2 + 1!1
+                o4 = o2 - 1!1
+                o2 = N + 1 + my_mod(o2 - N - 1, N)
+                o3 = N + 1 + my_mod(o3 - N - 1, N)
+                o4 = N + 1 + my_mod(o4 - N - 1, N)
+
+                x1 = gl_S_in%center_gran_x(o3)
+                y1 = gl_S_in%center_gran_y(o3)
+                f1 = gl_S_in%u(o3)
+
+                x2 = gl_S_in%center_gran_x(o4)
+                y2 = gl_S_in%center_gran_y(o4)
+                f2 = gl_S_in%u(o4)
+
+                ux = (f2 - f1)/sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                p1 = p1 + (ux**2)/(8.0 * par_pi)
+            end do
+            p1 = p1 / (2 * k_sqlag + 1)
+
+            the = atan(y0, x0)
+            r = sqrt(x0**2 + y0**2)
+
+            ! Новый вариант вычисления давления на границе
+            p2 = 0.0_8
+            do o1 = -k_sqlag, k_sqlag, 1
+                o2 = i + o1
+                o3 = o2 + 1!1
+                o4 = o2 - 1!1
+                o2 = N + 1 + my_mod(o2 - N - 1, N)
+                o3 = N + 1 + my_mod(o3 - N - 1, N)
+                o4 = N + 1 + my_mod(o4 - N - 1, N)
+
+                x1 = gl_S_out%center_gran_x(o3 - N)
+                y1 = gl_S_out%center_gran_y(o3 - N)
+                f1 = gl_S_out%u(o3 - N)
+
+                x2 = gl_S_out%center_gran_x(o4 - N)
+                y2 = gl_S_out%center_gran_y(o4 - N)
+                f2 = gl_S_out%u(o4 - N)
+
+                n1 = gl_S_in%normal_gran_x(o2)
+
+                d = sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                u1 = (f2 - f1)/d
+                u2 = -par_Uinf * (-n1)
+                ex = (x2 - x1)/d
+                ey = (y2 - y1)/d
+
+                ux = u1 * ex + u2 * (-n1)
+                uy = u1 * ey + u2 * (-n2)
+
+                p2 = p2 + par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
+            end do
+            p2 = p2/(2 * k_sqlag + 1)
+
+            if(the > 0) then
+                the = the
+            else
+                the = the + 2 * par_pi
+            end if
+
+            write(2,*) the, r, p1, p2, gl_S_in%u(i), gl_S_out%u(i - N), gl_S_in%un(i), gl_S_out%un(i - N)
+        end do
+
+        close(2)
+
+    end subroutine Print_Pressure
+
     subroutine Print_test()
         integer :: i
         real(8) :: x, y, f1, f2, d, r, the
@@ -821,5 +999,30 @@ module GEOMETRY
         end do
     end subroutine Print_matrix_real
 
+    subroutine Save_surface(num)
+        integer, intent(in) :: num
+        CHARACTER(len = 3) :: name
+
+        write(unit=name,fmt='(i3.3)') num
+
+        open(1, file = name // "_save" // ".bin", FORM = 'BINARY')
+        write(1) yzel_x
+        write(1) yzel_y
+        close(1)
+
+    end subroutine Save_surface
+
+    subroutine Read_surface(num)
+        integer, intent(in) :: num
+        CHARACTER(len = 3) :: name
+
+        write(unit=name,fmt='(i3.3)') num
+
+        open(1, file = name // "_save" // ".bin", FORM = 'BINARY')
+        read(1) yzel_x
+        read(1) yzel_y
+        close(1)
+
+    end subroutine Read_surface
 
 end module GEOMETRY
