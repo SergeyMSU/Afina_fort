@@ -5,17 +5,26 @@ module STORAGE
     real(8), parameter :: par_sqrtpi = sqrt(par_pi)
 
 
-    real(8), parameter :: par_R0 = 0.1_8  ! Внутренняя сфера (Земля)
-    real(8), parameter :: par_R1 = 1.0_8  ! Внешняя сфера (Магнитосфера)
-    real(8), parameter :: par_Uinf = -1.0_8  ! Внешняя сфера (Магнитосфера)
+    real(8), parameter :: par_R0 = 1.0_8  ! Внутренняя сфера (Земля)
+    real(8), parameter :: par_R1 = 20.0_8  ! Внешняя сфера (Магнитосфера)
+    real(8), parameter :: par_Uinf = -1.0_8 
+    real(8), parameter :: par_Bernully = 15.5_8 
+    real(8), parameter :: par_move = 0.02_8 
+    real(8), parameter :: par_otstup = 0.5_8 
+    real(8), parameter :: par_sglag = 0.3_8 
+    real(8), parameter :: par_B0 = 3551.22_8 
 
 
-
+    integer :: par_N
     real(8), allocatable :: yzel_x(:)  ! Все узлы в программе
     real(8), allocatable :: yzel_y(:)  ! Все узлы в программе
+    ! От N + 1 до 2N - поверхность Магнитопаузы
+    real(8), allocatable :: vel_gran(:)  ! Скорость грани
+    real(8), allocatable :: vel_yzel_x(:)  ! Скорость узла
+    real(8), allocatable :: vel_yzel_y(:)  ! Скорость узла
 
 
-    TYPE, public :: Setka
+    TYPE :: Setka
         ! Данные, которые не меняются
         integer :: area
         ! 1 - внутренняя область
@@ -49,7 +58,7 @@ module STORAGE
     end TYPE
 
 
-    TYPE (Setka), public:: gl_S_in    ! Подседка для внутренней задачи
+    TYPE (Setka):: gl_S_in    ! Подседка для внутренней задачи
     TYPE (Setka):: gl_S_out   ! Подсетка для внешней задачи
 
 

@@ -61,6 +61,9 @@ module GEOMETRY
 
         ALLOCATE(yzel_x(2 * N))
         ALLOCATE(yzel_y(2 * N))
+        ALLOCATE(vel_gran(N))
+        ALLOCATE(vel_yzel_x(N))
+        ALLOCATE(vel_yzel_y(N))
 
 
         do i = 1, N
@@ -171,7 +174,8 @@ module GEOMETRY
 
             if(SS%gran_info(i) == 1) then
                 SS%un(i) = 0.0
-                SS%u(i) = par_R0 * sin(the) * (par_R1 * par_R1/r + r)/(par_R0**2 + par_R1**2)  !! Задаём граничные условия
+                SS%u(i) = par_B0 * sin(the) !! Задаём граничные условия
+                ! SS%u(i) = 3551.22 * sin(2.0 * the)  !! Задаём граничные условия
                 SS%if_u(i) = .True.
                 SS%if_un(i) = .False.
             else
@@ -316,6 +320,184 @@ module GEOMETRY
         end do
 
     end subroutine Culc_equ
+
+
+    real(8) pure function my_sign(x)
+        real(8), intent(in) :: x
+        if(x > 0.0000000000001) then
+            my_sign = 1.0_8
+        else if (x < 0.0000000000001) then
+            my_sign = -1.0_8
+        else
+            my_sign = 0.0_8
+        end if
+    end function my_sign
+
+
+    subroutine Move_surface() ! Двигаем поверхность-магнитопаузу согласно давлению с двух сторон
+        integer :: i, j, N, jj, o1, o2, o3, o4
+        real(8) :: n1, n2, x0, y0, x1, y1, r, nn, u1, u2, ex, ey
+        real(8) :: p1, p2, ux, uy, f1, f2, x2, y2, d, the, pp1, pp2, x3, y3
+
+        ! print*, "Move_surface"
+        vel_gran = 0.0_8;
+        N = par_N
+
+        open(1, file = 'test1.txt')
+        write(1,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2'"
+
+        open(2, file = 'test2.txt')
+        write(2,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2', 'ux', 'uy', 'u1', 'u2'"
+
+        ! Расчитываем скорость грани
+        do i = N + 1, 2 * N
+            j = i + 1
+            if(j > 2 * N) j = N + 1
+            jj = i - 1
+            if(jj == N) jj = 2 * N
+            x0 = gl_S_in%center_gran_x(i)
+            y0 = gl_S_in%center_gran_y(i)
+
+            ! print*, "0 ", sqrt(x0 * x0 + y0 * y0)
+
+            n1 = gl_S_in%normal_gran_x(i)
+            n2 = gl_S_in%normal_gran_y(i)
+
+            x1 = x0 - par_otstup * n1
+            y1 = y0 - par_otstup * n2
+            ux = Get_v1(x1, y1, gl_S_in)
+            uy = Get_v2(x1, y1, gl_S_in)
+            pp1 = (ux**2 + uy**2)/(8.0 * par_pi)
+
+            ! Новый вариант вычисления давления на границе
+            p1 = 0.0_8
+            do o1 = -3, 3, 1
+                o2 = i + o1
+                o3 = o2 + 1
+                o4 = o2 - 1
+                o2 = N + 1 + mod(o2 - N - 1, N)
+                o3 = N + 1 + mod(o3 - N - 1, N)
+                o4 = N + 1 + mod(o4 - N - 1, N)
+
+                x1 = gl_S_in%center_gran_x(j)
+                y1 = gl_S_in%center_gran_y(j)
+                f1 = gl_S_in%u(j)
+
+                x2 = gl_S_in%center_gran_x(jj)
+                y2 = gl_S_in%center_gran_y(jj)
+                f2 = gl_S_in%u(jj)
+
+                ux = (f2 - f1)/sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                p1 = (ux**2)/(8.0 * par_pi)
+            end do
+
+            the = atan(y0, x0)
+            write(1,*) the, pp1, p1
+
+            x1 = x0 + par_otstup * n1
+            y1 = y0 + par_otstup * n2
+            ux = Get_v1(x1, y1, gl_S_out)
+            uy = Get_v2(x1, y1, gl_S_out)
+            pp2 = par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
+
+            ! Новый вариант вычисления давления на границе
+            x1 = gl_S_out%center_gran_x(j - N)
+            y1 = gl_S_out%center_gran_y(j - N)
+            f1 = gl_S_out%u(j - N)
+
+            x2 = gl_S_out%center_gran_x(jj - N)
+            y2 = gl_S_out%center_gran_y(jj - N)
+            f2 = gl_S_out%u(jj - N)
+
+            d = sqrt((x2 - x1)**2 + (y2 - y1)**2)
+            u1 = (f2 - f1)/d
+            u2 = -par_Uinf * (-n1)
+            ex = (x2 - x1)/d
+            ey = (y2 - y1)/d
+
+            ux = u1 * ex + u2 * (-n1)
+            uy = u1 * ey + u2 * (-n2)
+
+            p2 = par_Bernully - ((ux + par_Uinf)**2 + uy**2)/2.0
+
+            write(2,*) the, pp2, p2, ux + par_Uinf, uy, u1, u2
+            
+            vel_gran(i - N) = vel_gran(i - N) + par_move * sqrt(abs(p1 - p2))/2.0 * my_sign(p1 - p2)
+
+            ! if(i == N + N/4) then
+            !     print*, "i =", i, "vel_gran = ", vel_gran(i - N)
+            ! end if
+
+            ! if(i == N + 3 * N/4) then
+            !     print*, "i =", i, "vel_gran = ", vel_gran(i - N)
+            ! end if
+
+
+            ! if(vel_gran(i - N) > 10.0) print*, "ERROR orijhfiuffr", vel_gran(i - N)
+            ! print*, (i - N), vel_gran(i - N), p1, p2
+        end do
+
+        close(1)
+        close(2)
+
+        ! Расчитываем скорость каждого узла
+        vel_yzel_x = 0.0_8
+        vel_yzel_y = 0.0_8
+
+        do i = N + 1, 2 * N   ! Номера узлов
+            j = i - 1
+            if(j == N) j = 2 * N
+
+            n1 = gl_S_in%normal_gran_x(i)
+            n2 = gl_S_in%normal_gran_y(i)
+
+            vel_yzel_x(i - N) = vel_yzel_x(i - N) + n1 * vel_gran(i - N)/2.0
+            vel_yzel_y(i - N) = vel_yzel_y(i - N) + n2 * vel_gran(i - N)/2.0
+
+            vel_yzel_x(i - N) = vel_yzel_x(i - N) + n1 * vel_gran(j - N)/2.0
+            vel_yzel_y(i - N) = vel_yzel_y(i - N) + n2 * vel_gran(j - N)/2.0
+
+            ! if( abs(vel_yzel_y(i - N)) > 10.0) then
+            !     print*, "Vel", i - N, vel_yzel_x(i - N), vel_yzel_y(i - N), " ___ ", vel_gran(i - N), vel_gran(j - N)
+            !     print*, n1, n2
+            ! end if
+        end do
+
+        ! Расчитываем новое положение узла
+        do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ
+            
+            x0 = yzel_x(i)
+            y0 = yzel_y(i)
+            r = sqrt(x0 * x0 + y0 * y0)
+            nn = vel_yzel_x(i - N) * x0/r + vel_yzel_y(i - N) * y0/r
+            yzel_x(i) = x0 + x0/r * nn
+            yzel_y(i) = y0 + y0/r * nn
+        end do
+
+
+        ! Сглаживание
+        do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ
+            j = i + 1
+            if(j > 2 * N) j = N + 1
+            jj = i - 1
+            if(jj == N) jj = 2 * N
+
+            x0 = yzel_x(i)
+            y0 = yzel_y(i)
+            x1 = yzel_x(jj)
+            y1 = yzel_y(jj)
+            x2 = yzel_x(j)
+            y2 = yzel_y(j)
+
+            x3 = (x1 + x2)/2.0
+            y3 = (y1 + y2)/2.0
+
+            yzel_x(i) = x0 + (x3 - x0) * par_sglag
+            yzel_y(i) = y0 + (y3 - y0) * par_sglag
+        end do
+
+    end subroutine Move_surface
+
 
     real(8) pure function Get_f(x, y, SS)
         TYPE (Setka), intent(in) :: SS  
@@ -484,26 +666,63 @@ module GEOMETRY
         Get_v2 = S
     end function Get_v2
 
+    subroutine Print_test()
+        integer :: i
+        real(8) :: x, y, f1, f2, d, r, the
+        open(1, file = 'test.txt')
+        write(1,*) "TITLE = 'HP'  VARIABLES = 'the', 'Fanalit', 'F'"
+
+        do i = par_N + 1, 2 * par_N
+            x = gl_S_in%center_gran_x(i)
+            y = gl_S_in%center_gran_y(i)
+            r = sqrt(x**2 + y**2)
+            the = atan(y, x)
+            d = par_R0 * (par_R1 * par_R1/par_R0 + par_R0)/(par_R0**2 + par_R1**2) 
+            f1 = par_R0 * sin(the) * (par_R1 * par_R1/r + r)/(par_R0**2 + par_R1**2) /d * par_B0
+            f2 = gl_S_in%u(i)
+            write(1,*) the, f1, f2
+
+        end do
+
+        close(1)
+
+    end subroutine Print_test
 
     subroutine Print_Solution()
         INTEGER :: i, NNN, j
-        real(8) :: r, the, x, y, ux, uy
+        real(8) :: r, the, x, y, ux, uy, x1, y1
 
         NNN = 150
         open(1, file = 'Solution_in.txt')
         write(1,*) "TITLE = 'HP'  VARIABLES = 'X', 'Y', 'F', 'Bx', 'By', 'BB'"
 
-        do i = 1, NNN
+        do i = par_N + 1, 2 * par_N
+            x = yzel_x(i)
+            y = yzel_y(i)
             do j = 1, NNN
-                r = par_R0 + (par_R1 - par_R0) * (i)/(NNN + 1)
-                the = j * 2.0_8 * par_pi/NNN
-                x = r * cos(the)
-                y = r * sin(the)
-                ux = Get_v1(x, y, gl_S_in)
-                uy = Get_v2(x, y, gl_S_in)
-                write(1,*) x, y, Get_f(x, y, gl_S_in), ux, uy, (ux**2 + uy**2)/(8.0 * par_pi)
+                x1 = x * (1.0 - 1.0 * j/(NNN + 1.0))
+                y1 = y * (1.0 - 1.0 * j/(NNN + 1.0))
+                if(sqrt(x1 * x1 + y1 * y1) < par_R0 + 0.05) then
+                    write(1,*) x1, y1, 0.0, 0.0, 0.0, 0.0
+                else
+                    ux = Get_v1(x1, y1, gl_S_in)
+                    uy = Get_v2(x1, y1, gl_S_in)
+                    write(1,*) x1, y1, Get_f(x1, y1, gl_S_in), ux, uy, (ux**2 + uy**2)/(8.0 * par_pi)
+                end if
             end do
         end do
+
+        ! do i = 1, NNN
+        !     do j = 1, NNN
+        !         r = par_R0 + (par_R1 - par_R0) * (i)/(NNN + 1)
+        !         the = j * 2.0_8 * par_pi/NNN
+        !         x = r * cos(the)
+        !         y = r * sin(the)
+        !         ux = Get_v1(x, y, gl_S_in)
+        !         uy = Get_v2(x, y, gl_S_in)
+        !         write(1,*) x, y, Get_f(x, y, gl_S_in), ux, uy, (ux**2 + uy**2)/(8.0 * par_pi)
+        !     end do
+        ! end do
 
         close(1)
 
@@ -511,17 +730,33 @@ module GEOMETRY
         open(1, file = 'Solution_out.txt')
         write(1,*) "TITLE = 'HP'  VARIABLES = 'X', 'Y', 'F', 'Ux', 'Uy', 'p'"
 
-        do i = 1, NNN
+        do i = par_N + 1, 2 * par_N
+            x = yzel_x(i)
+            y = yzel_y(i)
             do j = 1, NNN
-                r = par_R1 + (3.0 * par_R1 - par_R1) * (i)/(NNN + 1)
-                the = j * 2.0_8 * par_pi/NNN
-                x = r * cos(the)
-                y = r * sin(the)
-                ux = Get_v1(x, y, gl_S_out)
-                uy = Get_v2(x, y, gl_S_out)
-                write(1,*) x, y, Get_f(x, y, gl_S_out) + par_Uinf * x, ux + par_Uinf, uy, 10.0 - (ux**2 + uy**2)/2.0
+                x1 = x * (1.0 + 3.0 * j/(NNN + 1.0))
+                y1 = y * (1.0 + 3.0 * j/(NNN + 1.0))
+                if(sqrt(x1 * x1 + y1 * y1) < par_R0 + 0.05) then
+                    write(1,*) x1, y1, 0.0, 0.0, 0.0, 0.0
+                else
+                    ux = Get_v1(x1, y1, gl_S_out)
+                    uy = Get_v2(x1, y1, gl_S_out)
+                    write(1,*) x1, y1, Get_f(x1, y1, gl_S_out) + par_Uinf * x1, ux + par_Uinf, uy, par_Bernully - ((ux+ par_Uinf)**2 + uy**2)/2.0
+                end if
             end do
         end do
+
+        ! do i = 1, NNN
+        !     do j = 1, NNN
+        !         r = par_R1 + (3.0 * par_R1 - par_R1) * (i)/(NNN + 1)
+        !         the = j * 2.0_8 * par_pi/NNN
+        !         x = r * cos(the)
+        !         y = r * sin(the)
+        !         ux = Get_v1(x, y, gl_S_out)
+        !         uy = Get_v2(x, y, gl_S_out)
+        !         write(1,*) x, y, Get_f(x, y, gl_S_out) + par_Uinf * x, ux + par_Uinf, uy, par_Bernully - ((ux+ par_Uinf)**2 + uy**2)/2.0
+        !     end do
+        ! end do
 
         close(1)
 

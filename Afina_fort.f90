@@ -20,24 +20,31 @@ program Afina_fort
     use GEOMETRY
     implicit none
 
-    integer :: N
+    integer :: N, i
     N = 400
 
-
+    par_N = N
     call Init_Setka(gl_S_in, 2 * N)
     call Init_Setka(gl_S_out, N)
     gl_S_in%area = 1
     gl_S_out%area = 2
 	call ALL_konstruct(N)
 
-    ! print*, "u = ", gl_S_out%u
-    ! print*, "un = ", gl_S_out%un
+    do i = 1, 150
+        print*, "step = ", i
+        call Calc_grans(gl_S_in)
+        call Calc_grans(gl_S_out)
 
-    call Set_Matrix(gl_S_in)
-    call Set_Matrix(gl_S_out)
-    ! call Print_matrix_real(gl_S_in%MM)
-    call Culc_equ(gl_S_in)
-    call Culc_equ(gl_S_out)
+        call Set_Matrix(gl_S_in)
+        call Set_Matrix(gl_S_out)
+        ! call Print_matrix_real(gl_S_in%MM)
+        call Culc_equ(gl_S_in)
+        call Culc_equ(gl_S_out)
+        call Move_surface()
+    end do
+
+    ! call Print_test()
+
     call Print_Solution()
 
     call Print_yzel_all()
