@@ -34,7 +34,7 @@ program Afina_fort
     call Read_surface(7)
     call Print_gran_setka(gl_S_in)
 
-    do i = 1, 200
+    do i = 1, 300
         print*, "step = ", i
         call Calc_grans(gl_S_in)
         call Calc_grans(gl_S_out)

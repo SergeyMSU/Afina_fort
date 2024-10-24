@@ -405,7 +405,7 @@ module GEOMETRY
     end function my_mod
 
     subroutine Move_surface() ! Двигаем поверхность-магнитопаузу согласно давлению с двух сторон
-        integer :: i, j, N, jj, o1, o2, o3, o4, k_sqlag
+        integer :: i, j, N, jj, o1, o2, o3, o4, k_sqlag, kk
         real(8) :: n1, n2, x0, y0, x1, y1, r, nn, u1, u2, ex, ey
         real(8) :: p1, p2, ux, uy, f1, f2, x2, y2, d, the, pp1, pp2, x3, y3
 
@@ -612,16 +612,50 @@ module GEOMETRY
                 Splayn_2%f(i) = sur_r((i - 1) * o1 + N/4 + 1)
             end do
 
+
             o2 = 25
-            call Init_Splayn(Splayn_1, N/4 / o2 + 1, 0, 1)
-           
-            do i = 1, N/4 / o2 + 1
-                Splayn_1%x(i) = sur_the((i - 1) * o2 + 1)
-                Splayn_1%f(i) = sur_r((i - 1) * o2 + 1)
+            kk = 16
+            jj = 0
+            do i = 1, N/4 + 1
+                if(mod(i, kk) == 0) jj = jj + 1
+
+                kk = 16
+                if(i >= N/8) kk = 14
+                if(i >= N/8 + N/16) kk = 12
+                if(i >= N/8 + N/16 + N/32) kk = 6
             end do
+
+            call Init_Splayn(Splayn_1, jj, 0, 1)
+
+            kk = 16
+            jj = 1
+            do i = 1, N/4 + 1
+                if(mod(i, kk) == 0) then
+                    Splayn_1%x(jj) = sur_the(i)
+                    Splayn_1%f(jj) = sur_r(i)
+                    jj = jj + 1
+                end if
+
+                kk = 16
+                if(i >= N/8) kk = 14
+                if(i >= N/8 + N/16) kk = 12
+                if(i >= N/8 + N/16 + N/32) kk = 6
+            end do
+            Splayn_1%x(1) = sur_the(1)
+            Splayn_1%f(1) = sur_r(1)
+            Splayn_1%x(jj - 1) = sur_the(N/4 + 1)
+            Splayn_1%f(jj - 1) = sur_r(N/4 + 1)
+
+            ! call Init_Splayn(Splayn_1, N/4 / o2 + 1, 0, 1)
+           
+            ! do i = 1, N/4 / o2 + 1
+            !     Splayn_1%x(i) = sur_the((i - 1) * o2 + 1)
+            !     Splayn_1%f(i) = sur_r((i - 1) * o2 + 1)
+            ! end do
 
             ! print*, "111 ", sur_the(1), sur_the(N/4 + 1)
 
+            !! Третий сплайн
             o3 = 25
             call Init_Splayn(Splayn_3, N/4 / o3 + 1, 1, 0)
             do i = 1, N/4 / o3
@@ -660,12 +694,12 @@ module GEOMETRY
                     sur_r2(i) = Splayn_Get(Splayn_3, sur_the(i))
                 end if
 
-                if(sur_the(i) > par_pi * 80 / 180 .and. sur_the(i) < par_pi * 100 / 180) then
+                if(sur_the(i) > par_pi * 65 / 180 .and. sur_the(i) < par_pi * 115 / 180) then
                     sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
                 end if
 
 
-                if(sur_the(i) > par_pi * 260 / 180 .and. sur_the(i) < par_pi * 280 / 180) then
+                if(sur_the(i) > par_pi * 245 / 180 .and. sur_the(i) < par_pi * 295 / 180) then
                     sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
                 end if
 
