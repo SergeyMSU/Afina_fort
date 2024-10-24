@@ -1,6 +1,7 @@
 module GEOMETRY
     use STORAGE 
     USE For_splayn
+    USE OMP_LIB
     implicit none 
 
 
@@ -60,8 +61,8 @@ module GEOMETRY
         real(8) :: the, r
 
 
-        ALLOCATE(yzel_x(2 * N))
-        ALLOCATE(yzel_y(2 * N))
+        ALLOCATE(yzel_x(3 * N))
+        ALLOCATE(yzel_y(3 * N))
         ALLOCATE(vel_gran(N))
         ALLOCATE(vel_yzel_x(N))
         ALLOCATE(vel_yzel_y(N))
@@ -85,6 +86,14 @@ module GEOMETRY
 
             yzel_x(i) = r * cos(the)
             yzel_y(i) = r * sin(the)
+        end do
+
+        do i = 2*N + 1, 3 * N
+            the = (i - 2 * N - 1) * 2.0 * par_pi/N
+            r = 1.0_8
+
+            yzel_x(i) = -6.0_8 + r * cos(the)
+            yzel_y(i) = 6.0_8 + r * sin(the)
         end do
 
         ! Работаем с первой подсеткой
@@ -112,6 +121,16 @@ module GEOMETRY
             gl_S_in%if_u_0(i) = .False.
             gl_S_in%if_un_0(i) = .True.
             gl_S_in%gran_info(i) = 2
+        end do
+
+        do i = 2 * N + 1, 3 * N  ! Заполняем грани на внешней сфере
+            j = i + 1
+            if(j > 3 * N) j = 2 * N + 1
+            gl_S_in%gran(1, i) = j
+            gl_S_in%gran(2, i) = i
+            gl_S_in%if_u_0(i) = .True.
+            gl_S_in%if_un_0(i) = .False.
+            gl_S_in%gran_info(i) = 3
         end do
 
         gl_S_in%if_u = gl_S_in%if_u_0
@@ -146,7 +165,7 @@ module GEOMETRY
 
     subroutine Calc_grans(SS)   ! Считаем нормали и длины
         TYPE (Setka), intent(in out) :: SS  
-        real(8) :: x1, y1, x2, y2, l1, l2, l, the, r
+        real(8) :: x1, y1, x2, y2, l1, l2, l, the, r, the2
         INTEGER :: i, k1, k2
 
         do i = 1, SS%N
@@ -175,6 +194,7 @@ module GEOMETRY
 
             r = sqrt(((x1 + x2)/2.0)**2 + ((y1 + y2)/2.0)**2)
             the = atan((y1 + y2)/2.0, (x1 + x2)/2.0)
+            the2 = atan((y1 + y2)/2.0 - 6.0, (x1 + x2)/2.0 + 6.0)
 
             if(SS%gran_info(i) == 1) then
                 SS%un(i) = 0.0
@@ -182,7 +202,7 @@ module GEOMETRY
                 ! SS%u(i) = 3551.22 * sin(2.0 * the)  !! Задаём граничные условия
                 SS%if_u(i) = .True.
                 SS%if_un(i) = .False.
-            else
+            else if(SS%gran_info(i) == 2) then
                 if(SS%area == 1) then
                     SS%un(i) = 0.0
                     SS%u(i) = 0.0
@@ -194,6 +214,12 @@ module GEOMETRY
                     SS%if_u(i) = .False.
                     SS%if_un(i) = .True.
                 end if
+            else if(SS%gran_info(i) == 3) then
+                SS%un(i) = 0.0
+                SS%u(i) = -par_B0 * sin(the2) / 3.0 !! Задаём граничные условия
+                ! SS%u(i) = 3551.22 * sin(2.0 * the)  !! Задаём граничные условия
+                SS%if_u(i) = .True.
+                SS%if_un(i) = .False.
             end if
             
 
@@ -332,6 +358,9 @@ module GEOMETRY
         ! print*, "==", SS%gran_info
 
         ! Считаем MM
+
+        !$omp parallel
+		!$omp do private(j)
         do i = 1, SS%N
             do j = 1, SS%N
                 if(SS%if_u(j) == .False.) then
@@ -341,6 +370,8 @@ module GEOMETRY
                 end if
             end do
         end do
+        !$omp end do
+		!$omp end parallel
 
         ! Считаем BB
         do i = 1, SS%N
@@ -581,7 +612,7 @@ module GEOMETRY
         sur_the(1) = 0.0   ! Так как он ставит здесь Пи
 
 
-        if(.False.) then
+        if(.True.) then
             ! Сглаживание старое
             do i = 1, N   ! Номера узлов  !! ДОДЕЛАТЬ
                 j = i + 1
@@ -604,7 +635,7 @@ module GEOMETRY
         end if
 
 
-        if(.True.) then
+        if(.False.) then
             o1 = 25
             call Init_Splayn(Splayn_2, N/2 / o1 + 1, 1, 1)
             do i = 1, N/2 / o1 + 1
