@@ -1,5 +1,6 @@
 module GEOMETRY
     use STORAGE 
+    USE For_splayn
     implicit none 
 
 
@@ -412,7 +413,7 @@ module GEOMETRY
         vel_gran = 0.0_8;
         N = par_N
 
-        k_sqlag = 3
+        k_sqlag = 1!3
 
         ! open(1, file = 'test1.txt')
         ! write(1,*) "TITLE = 'HP'  VARIABLES = 'the', 'p1', 'p2'"
@@ -577,26 +578,102 @@ module GEOMETRY
             end if
             sur_r(i - N) = r
         end do
+        sur_the(1) = 0.0   ! Так как он ставит здесь Пи
 
-        ! Сглаживание
-        do i = 1, N   ! Номера узлов  !! ДОДЕЛАТЬ
-            j = i + 1
-            if(j > N) j = 1
-            jj = i - 1
-            if(jj == 0) jj = N
 
-            ! if(i == N/4 .or. i == 3 * N/4) then
-            !     sur_r2(i) = sur_r(i)
-            ! else
-            !     ! sur_r2(i) = (sur_r(j) + 2 * sur_r(i) + sur_r(jj))/4.0
-            !     sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
-            !     ! sur_r2(i) = (sur_r(j) + sur_r(jj))/2.0
-            ! end if
+        if(.False.) then
+            ! Сглаживание старое
+            do i = 1, N   ! Номера узлов  !! ДОДЕЛАТЬ
+                j = i + 1
+                if(j > N) j = 1
+                jj = i - 1
+                if(jj == 0) jj = N
 
-            sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
-            ! sur_r2(i) = (sur_r(j) + 3 * sur_r(i) + sur_r(jj))/5.0
+                ! if(i == N/4 .or. i == 3 * N/4) then
+                !     sur_r2(i) = sur_r(i)
+                ! else
+                !     ! sur_r2(i) = (sur_r(j) + 2 * sur_r(i) + sur_r(jj))/4.0
+                !     sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+                !     ! sur_r2(i) = (sur_r(j) + sur_r(jj))/2.0
+                ! end if
 
-        end do
+                sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+                ! sur_r2(i) = (sur_r(j) + 3 * sur_r(i) + sur_r(jj))/5.0
+
+            end do
+        end if
+
+
+        if(.True.) then
+            o1 = 25
+            call Init_Splayn(Splayn_2, N/2 / o1 + 1, 1, 1)
+            do i = 1, N/2 / o1 + 1
+                Splayn_2%x(i) = sur_the((i - 1) * o1 + N/4 + 1)
+                Splayn_2%f(i) = sur_r((i - 1) * o1 + N/4 + 1)
+            end do
+
+            o2 = 25
+            call Init_Splayn(Splayn_1, N/4 / o2 + 1, 0, 1)
+           
+            do i = 1, N/4 / o2 + 1
+                Splayn_1%x(i) = sur_the((i - 1) * o2 + 1)
+                Splayn_1%f(i) = sur_r((i - 1) * o2 + 1)
+            end do
+
+            ! print*, "111 ", sur_the(1), sur_the(N/4 + 1)
+
+            o3 = 25
+            call Init_Splayn(Splayn_3, N/4 / o3 + 1, 1, 0)
+            do i = 1, N/4 / o3
+                Splayn_3%x(i) = sur_the((i - 1) * o3 + 3 * N/4 + 1)
+                Splayn_3%f(i) = sur_r((i - 1) * o3 + 3 * N/4 + 1)
+            end do
+
+            Splayn_3%x(N/4 / o3 + 1) = 2 * par_pi
+            Splayn_3%f(N/4 / o3 + 1) = sur_r(1)
+
+
+
+            call Splayn_Set_Matrix(Splayn_1)
+            call Splayn_Culc_equ(Splayn_1)
+            ! call Print_Splayn(Splayn_1, 1)
+
+            call Splayn_Set_Matrix(Splayn_2)
+            call Splayn_Culc_equ(Splayn_2)
+            ! call Print_Splayn(Splayn_2, 2)
+
+            call Splayn_Set_Matrix(Splayn_3)
+            call Splayn_Culc_equ(Splayn_3)
+            ! call Print_Splayn(Splayn_3, 3)
+
+            do i = 1, N   ! Номера узлов
+                j = i + 1
+                if(j > N) j = 1
+                jj = i - 1
+                if(jj == 0) jj = N
+
+                if(sur_the(i) >= Splayn_1%x(1) .and. sur_the(i) <= Splayn_1%x(Splayn_1%N)) then
+                    sur_r2(i) = Splayn_Get(Splayn_1, sur_the(i))
+                else if (sur_the(i) >= Splayn_2%x(1) .and. sur_the(i) <= Splayn_2%x(Splayn_2%N)) then
+                    sur_r2(i) = Splayn_Get(Splayn_2, sur_the(i))
+                else
+                    sur_r2(i) = Splayn_Get(Splayn_3, sur_the(i))
+                end if
+
+                if(sur_the(i) > par_pi * 80 / 180 .and. sur_the(i) < par_pi * 100 / 180) then
+                    sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+                end if
+
+
+                if(sur_the(i) > par_pi * 260 / 180 .and. sur_the(i) < par_pi * 280 / 180) then
+                    sur_r2(i) = (sur_r(j) + sur_r(i) + sur_r(jj))/3.0
+                end if
+
+
+            end do
+
+        end if
+        
 
         do i = N + 1, 2 * N   ! Номера узлов  !! ДОДЕЛАТЬ
             yzel_x(i) = sur_r2(i - N) * cos(sur_the(i - N))

@@ -64,8 +64,27 @@ module STORAGE
     end TYPE
 
 
+    TYPE :: Splayn
+        INTEGER :: N  ! Число узлов, где задана функция (включая граничные)
+        real(8), allocatable :: x(:)  ! x - координаты узлов
+        real(8), allocatable :: f(:)  ! значение функции в узлах
+        real(8), allocatable :: a(:, :)  ! (3, N - 1)  коэффициенты сплайна 
+        real(8), allocatable :: M(:, :)  ! (3 * (N - 1), 3 * (N - 1) )  матрица сплайна 
+        real(8), allocatable :: B(:)  ! (3 * (N - 1))  правый столбец
+        INTEGER :: left    ! Условия не левом конце сплайна
+        INTEGER :: right    ! Условия не правом конце сплайна
+        ! 0 - равенство нулю первой производной
+        ! 1 - равенство нулю второй производной
+    end TYPE
+
+
     TYPE (Setka):: gl_S_in    ! Подседка для внутренней задачи
     TYPE (Setka):: gl_S_out   ! Подсетка для внешней задачи
+
+
+    TYPE (Splayn):: Splayn_1   ! Подсетка для внешней задачи
+    TYPE (Splayn):: Splayn_2   ! Подсетка для внешней задачи
+    TYPE (Splayn):: Splayn_3   ! Подсетка для внешней задачи
 
 
 end module STORAGE
